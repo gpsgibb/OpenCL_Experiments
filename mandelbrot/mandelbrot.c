@@ -124,8 +124,8 @@ int main(int argc, char **argv){
         return 1;
     }
 
-    //create the command queue. Here we set the command_queue_properties to zero - e.g. use defaults
-    cl_command_queue queue = clCreateCommandQueue(context,device,0,&ierr);
+    //create the command queue. Here we set the command_queue_properties to request profiling so we can time how long it takes to do the work
+    cl_command_queue queue = clCreateCommandQueue(context,device,CL_QUEUE_PROFILING_ENABLE,&ierr);
     if (ierr != CL_SUCCESS){
         printf("An error occurred creating the command queue!\n");
         return 1;
@@ -261,16 +261,29 @@ int main(int argc, char **argv){
         printf("An error occurred enqueueing the task!\n");
         return 1;
     }
-
-
+    
     //get results back
-    ierr = clEnqueueReadBuffer(queue,outputBuffer,CL_TRUE,0,sizeof(int)*NX*NY,(void *) output,1,&event,NULL);
+    cl_event copyEvent;
+    ierr = clEnqueueReadBuffer(queue,outputBuffer,CL_TRUE,0,sizeof(int)*NX*NY,(void *) output,1,&event,&copyEvent);
     if (ierr != CL_SUCCESS){
         printf("An error occurred getting the output buffer!\n");
         return 1;
     }
 
     printf("Done!\n");
+
+    //Get the time taken to do the calculation
+    cl_ulong tstart, tstop;
+
+    clGetEventProfilingInfo(event,CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&tstart,NULL);
+    clGetEventProfilingInfo(event,CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&tstop,NULL);
+    printf("Time to complete calculation: %f ms\n",(tstop-tstart)/1.E6);
+    
+    // same thing but the time taken to copy the data off the GPU
+    clGetEventProfilingInfo(copyEvent,CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&tstart,NULL);
+    clGetEventProfilingInfo(copyEvent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&tstop,NULL);
+    printf("Time to complete copy from device to host: %f ms\n",(tstop-tstart)/1.E6);
+
     
 
     //generate x and y arrays to convert the int image coordinates [i,j] into float x and y values
