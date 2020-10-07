@@ -1,10 +1,17 @@
 CC = gcc
+CFLAGS = -g -O0
 
-apple: oclinfo.c
-	gcc oclinfo.c -framework OpenCL -o oclinfo
+UNAME_S = $(shell uname -s)
 
-linux: oclinfo.c
-	gcc oclinfo.c -lOpenCL -o oclinfo
+ifeq ($(UNAME_S),Darwin)
+	OCLFLAGS = -framework OpenCL
+endif
+ifeq ($(UNAME_S),Linux)
+	OCLFLAGS = -lOpenCL
+endif
+
+oclinfo: oclinfo.c
+	$(CC) $(CFLAGS) oclinfo.c $(OCLFLAGS) -o oclinfo
 
 clean:
 	rm oclinfo

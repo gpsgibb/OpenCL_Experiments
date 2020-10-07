@@ -14,7 +14,7 @@
 #endif
 
 //maximum length of a string
-#define MAXL 1000
+#define MAXL 10000
 
 //gets the output string for a platform's infotype
 void GetPlatformInfo(cl_platform_id platform, cl_platform_info infotype,char* outstring){
@@ -22,7 +22,7 @@ void GetPlatformInfo(cl_platform_id platform, cl_platform_info infotype,char* ou
 
     ierr = clGetPlatformInfo(platform,
                             infotype,
-                            MAXL,
+                            MAXL-1,
                             outstring,
                             NULL
                             );
@@ -31,17 +31,59 @@ void GetPlatformInfo(cl_platform_id platform, cl_platform_info infotype,char* ou
     }
 }
 
-//gets the output from a device's infotype
-void GetDeviceInfo(cl_device_id device, cl_device_info infotype, void* output){
+//gets the output string for a device's infotype
+void GetDeviceInfoStr(cl_device_id device, cl_device_info infotype, char* output){
     cl_uint ierr;
 
     ierr = clGetDeviceInfo(device,
                            infotype,
-                           MAXL,
-                           output,
+                           MAXL-1,
+                           (void*)output,
                            NULL);
     if (ierr != CL_SUCCESS){
-        printf("Something went wrong in clGetPlatformInfo!\n");
+        printf("Something went wrong in clGetDeviceInfo!\n");
+    }
+}
+
+//gets the device type for a device
+void GetDeviceInfoType(cl_device_id device, cl_device_info infotype, cl_device_type* output){
+    cl_uint ierr;
+
+    ierr = clGetDeviceInfo(device,
+                           infotype,
+                           sizeof(cl_device_type),
+                           (void*)output,
+                           NULL);
+    if (ierr != CL_SUCCESS){
+        printf("Something went wrong in clGetDeviceInfo!\n");
+    }
+}
+
+//gets the output uint for a device's infotype
+void GetDeviceInfoUint(cl_device_id device, cl_device_info infotype, cl_uint* output){
+    cl_uint ierr;
+
+    ierr = clGetDeviceInfo(device,
+                           infotype,
+                           sizeof(cl_uint),
+                           (void*)output,
+                           NULL);
+    if (ierr != CL_SUCCESS){
+        printf("Something went wrong in clGetDeviceInfo!\n");
+    }
+}
+
+//gets the output ulong from a device's infotype
+void GetDeviceInfoUlong(cl_device_id device, cl_device_info infotype, ulong* output){
+    cl_uint ierr;
+
+    ierr = clGetDeviceInfo(device,
+                           infotype,
+                           sizeof(cl_ulong),
+                           (void*)output,
+                           NULL);
+    if (ierr != CL_SUCCESS){
+        printf("Something went wrong in clGetDeviceInfo!\n");
     }
 }
 
@@ -82,13 +124,12 @@ int main(int argc, char **argv){
     //string to contain output from the Get****Info calls
     char *outstring = malloc(MAXL * sizeof(char));
     // ints and longs for output from the Get***Info calls
-    cl_uint cluint_var;
-    cl_ulong clulong_var;
+    cl_uint cluint_var=0;
+    cl_ulong clulong_var=0;
 
     //list of devices
-    cl_uint ndevices;
-    cl_device_id *devices;
-
+    cl_uint ndevices=0;
+    cl_device_id *devices=NULL;
     cl_device_type dev_type;
     
     //loop over list of available platforms and print info
@@ -96,17 +137,18 @@ int main(int argc, char **argv){
         printf("\nPlatform %d:\n",i);
         
         //get specific information from the platform and print it
-        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_NAME,outstring);
+        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_NAME,(void*) outstring);
         printf("  CL_PLATFORM_NAME: %s\n",outstring); 
-        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_PROFILE,outstring);
+        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_PROFILE,(void*)outstring);
         printf("  CL_PLATFORM_PROFILE: %s\n",outstring);
-        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_VERSION,outstring);
+        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_VERSION,(void*)outstring);
         printf("  CL_PLATFORM_VERSION: %s\n",outstring);
-        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_VENDOR,outstring); 
+        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_VENDOR,(void*)outstring); 
         printf("  CL_PLATFORM_VENDOR: %s\n",outstring); 
-        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_EXTENSIONS,outstring);
+        GetPlatformInfo(Platform_IDs[i],CL_PLATFORM_EXTENSIONS,(void*)outstring);
         printf("  CL_PLATFORM_EXTENSIONS: %s\n",outstring); 
         printf("\n");
+
         
         // get the list of devices
         //first call this with NULL to get the size so we can malloc the memoery we need
@@ -136,10 +178,13 @@ int main(int argc, char **argv){
         for (int j=0;j<ndevices;j++){
             printf("  Device %d:\n",j);
 
-            GetDeviceInfo(devices[j],CL_DEVICE_NAME,outstring);
+            GetDeviceInfoStr(devices[j],CL_DEVICE_NAME,(void*)outstring);
             printf("    CL_DEVICE_NAME: %s\n",outstring);
+            
 
-            GetDeviceInfo(devices[j],CL_DEVICE_TYPE,&dev_type);
+
+            GetDeviceInfoType(devices[j],CL_DEVICE_TYPE,(void*)&dev_type);
+            
             if (dev_type == CL_DEVICE_TYPE_GPU){
                 printf("    CL_DEVICE_TYPE: CL_DEVICE_TYPE_GPU\n");
             } else if (dev_type == CL_DEVICE_TYPE_CPU){
@@ -148,20 +193,21 @@ int main(int argc, char **argv){
                 printf("    CL_DEVICE_TYPE: other\n");
             }
 
-            GetDeviceInfo(devices[j],CL_DEVICE_MAX_COMPUTE_UNITS,&cluint_var);
+
+            GetDeviceInfoUint(devices[j],CL_DEVICE_MAX_COMPUTE_UNITS,(void*)&cluint_var);
             printf("    CL_DEVICE_MAX_COMPUTE_UNITS: %d\n",cluint_var);
 
-            GetDeviceInfo(devices[j],CL_DEVICE_MAX_CLOCK_FREQUENCY,&cluint_var);
+            GetDeviceInfoUint(devices[j],CL_DEVICE_MAX_CLOCK_FREQUENCY,(void*)&cluint_var);
             printf("    CL_DEVICE_MAX_CLOCK_FREQUENCY: %dMHz\n",cluint_var);
 
-            GetDeviceInfo(devices[j],CL_DEVICE_GLOBAL_MEM_SIZE,&clulong_var);
+            GetDeviceInfoUlong(devices[j],CL_DEVICE_GLOBAL_MEM_SIZE,(void*)&clulong_var);
             printf("    CL_DEVICE_GLOBAL_MEM_SIZE: %lu bytes\n",clulong_var);
 
-            GetDeviceInfo(devices[j],CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,&cluint_var);
+            GetDeviceInfoUint(devices[j],CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,(void*)&cluint_var);
             if (cluint_var != 0){
-                printf("    Supports double precision?: Yes\n");
+               printf("    Supports double precision?: Yes\n");
             } else {
-                printf("    Supports double precision?: No\n");
+               printf("    Supports double precision?: No\n");
             }
 
         }
