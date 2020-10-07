@@ -26,10 +26,10 @@
 
 //The platform and GPU device IDs we wish to use
 #define PLATFORMNUM 0
-#define DEVICENUM 2
+#define DEVICENUM 0
 
 //length of the string for returning device/platform info
-#define STRINGLENGTH 1000
+#define STRINGLENGTH 100000
 
 //number of pixels in output image
 #define NX 1000
@@ -40,6 +40,8 @@
 #define XMAX -1.1755
 #define YMIN -0.3000
 #define YMAX -0.2970
+
+#define DOUBLE_PRECISION 1
 
 // a callback function to report on any errors that occur within the context
 void errorCallback(const char * errorString, const void *privateInfo, size_t cb, void *userData){
@@ -125,7 +127,14 @@ int main(int argc, char **argv){
     }
 
     //create the command queue. Here we set the command_queue_properties to request profiling so we can time how long it takes to do the work
-    cl_command_queue queue = clCreateCommandQueue(context,device,CL_QUEUE_PROFILING_ENABLE,&ierr);
+    cl_queue_properties qproperties[] = {
+                                           CL_QUEUE_PROPERTIES,
+                                           CL_QUEUE_PROFILING_ENABLE,
+                                           0
+                                        };
+    cl_command_queue queue = clCreateCommandQueueWithProperties(context,device,qproperties,&ierr);
+    //deprecated syntax
+    //cl_command_queue queue = clCreateCommandQueue(context,device,CL_QUEUE_PROFILING_ENABLE,&ierr);
     if (ierr != CL_SUCCESS){
         printf("An error occurred creating the command queue!\n");
         return 1;
@@ -161,82 +170,175 @@ int main(int argc, char **argv){
     ierr = clBuildProgram(program,1,&device,"\0",NULL,NULL);
     if (ierr != CL_SUCCESS){
         printf("An error occurred building the program!\n");
+        size_t len;
+        clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+        char *error = malloc(len*sizeof(char));
+        printf("len=%u\n",len);
+        clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, len, error, NULL);
+        //printf("%s\n",error);
+        for (int i=0;i<len;i++){
+            putchar(error[i]);
+        }
         return 1;
     }
+
+    cl_kernel kernel;
+    int nx, ny;
+    int *output;
+    cl_mem outputBuffer;
+
+    if (!DOUBLE_PRECISION){
+
+        printf("Using floating point calculations\n");
+        //select the kernel
+        kernel = clCreateKernel(program,"mandelbrot",&ierr);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred creating the kernel! - %d\n",ierr);
+            return 1;
+        }
+
+
+        nx = NX;
+        ny = NY;
+
+        float xmin=XMIN;
+        float xmax=XMAX;
+        float ymin=YMIN;
+        float ymax=YMAX;
+
+
+        //set up memory
+        output = malloc(sizeof(int)*nx*ny);
     
-    //select the kernel
-    cl_kernel kernel = clCreateKernel(program,"mandelbrot",&ierr);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred creating the kernel!\n");
-        return 1;
+        // // tell OpenCL to use the above array as output from the GPU.
+        outputBuffer = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,sizeof(int)*NX*NY,(void*) output,&ierr);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred creating the output buffer!\n");
+            return 1;
+        }
+
+    
+
+        // //set the kernel arguments 
+        ierr = clSetKernelArg(kernel,0,sizeof(cl_mem),(void *) &outputBuffer);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg0 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,1,sizeof(float),&xmin);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg1 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,2,sizeof(float),&xmax);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg2 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,3,sizeof(float),&ymin);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg3 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,4,sizeof(float),&ymax);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg4 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,5,sizeof(int),&nx);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg5 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,6,sizeof(int),&ny);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg6 for the kernel!\n");
+            return 1;
+        }
+
+    } else {
+
+        printf("Using double precision calculations\n");
+        //select the kernel
+        kernel = clCreateKernel(program,"mandelbrot_double",&ierr);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred creating the kernel!\n");
+            return 1;
+        }
+
+
+        nx = NX;
+        ny = NY;
+
+        double xmin=XMIN;
+        double xmax=XMAX;
+        double ymin=YMIN;
+        double ymax=YMAX;
+
+
+        //set up memory
+        output = malloc(sizeof(int)*nx*ny);
+    
+        // // tell OpenCL to use the above array as output from the GPU.
+        outputBuffer = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,sizeof(int)*NX*NY,(void*) output,&ierr);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred creating the output buffer!\n");
+            return 1;
+        }
+
+    
+
+        // //set the kernel arguments 
+        ierr = clSetKernelArg(kernel,0,sizeof(cl_mem),(void *) &outputBuffer);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg0 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,1,sizeof(double),&xmin);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg1 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,2,sizeof(double),&xmax);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg2 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,3,sizeof(double),&ymin);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg3 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,4,sizeof(double),&ymax);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg4 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,5,sizeof(int),&nx);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg5 for the kernel!\n");
+            return 1;
+        }
+
+        ierr = clSetKernelArg(kernel,6,sizeof(int),&ny);
+        if (ierr != CL_SUCCESS){
+            printf("An error occurred setting arg6 for the kernel!\n");
+            return 1;
+        }
     }
 
-
-    int nx = NX;
-    int ny = NY;
-
-    float xmin=XMIN;
-    float xmax=XMAX;
-    float ymin=YMIN;
-    float ymax=YMAX;
-
-
-    //set up memory
-    int *output = malloc(sizeof(int)*nx*ny);
-   
-    // // tell OpenCL to use the above array as output from the GPU.
-    cl_mem outputBuffer = clCreateBuffer(context,CL_MEM_WRITE_ONLY | CL_MEM_USE_HOST_PTR,sizeof(int)*NX*NY,(void*) output,&ierr);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred creating the output buffer!\n");
-        return 1;
-    }
-
-   
-
-    // //set the kernel arguments 
-    ierr = clSetKernelArg(kernel,0,sizeof(cl_mem),(void *) &outputBuffer);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg0 for the kernel!\n");
-        return 1;
-    }
-
-    ierr = clSetKernelArg(kernel,1,sizeof(float),&xmin);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg1 for the kernel!\n");
-        return 1;
-    }
-
-    ierr = clSetKernelArg(kernel,2,sizeof(float),&xmax);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg2 for the kernel!\n");
-        return 1;
-    }
-
-    ierr = clSetKernelArg(kernel,3,sizeof(float),&ymin);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg3 for the kernel!\n");
-        return 1;
-    }
-
-    ierr = clSetKernelArg(kernel,4,sizeof(float),&ymax);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg4 for the kernel!\n");
-        return 1;
-    }
-
-    ierr = clSetKernelArg(kernel,5,sizeof(int),&nx);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg5 for the kernel!\n");
-        return 1;
-    }
-
-    ierr = clSetKernelArg(kernel,6,sizeof(int),&ny);
-    if (ierr != CL_SUCCESS){
-        printf("An error occurred setting arg6 for the kernel!\n");
-        return 1;
-    }
-
-
+    
 
 
     //run kernel
@@ -247,20 +349,21 @@ int main(int argc, char **argv){
     cl_event event;
     
     // the size of the work (nx*ny piexes of work)
-	size_t global_work_size[] = { NY, NX};
-	ierr = clEnqueueNDRangeKernel(queue, 
-                                  kernel, 
-                                  2, //number of dimensions
-                                  NULL, // work offsets (None)
-                                  global_work_size, // size of each dim of work
-                                  NULL, //local workgroup size
-                                  0, //number of tasks this needs to wait on
-                                  NULL, //array of these tasks
-                                  &event); //event object
+    size_t global_work_size[] = { NY, NX};
+    ierr = clEnqueueNDRangeKernel(queue, 
+                                kernel, 
+                                2, //number of dimensions
+                                NULL, // work offsets (None)
+                                global_work_size, // size of each dim of work
+                                NULL, //local workgroup size
+                                0, //number of tasks this needs to wait on
+                                NULL, //array of these tasks
+                                &event); //event object
     if (ierr != CL_SUCCESS){
         printf("An error occurred enqueueing the task!\n");
         return 1;
     }
+    
     
     //get results back
     cl_event copyEvent;
@@ -275,20 +378,41 @@ int main(int argc, char **argv){
     //Get the time taken to do the calculation
     cl_ulong tstart, tstop;
 
-    clGetEventProfilingInfo(event,CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&tstart,NULL);
-    clGetEventProfilingInfo(event,CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&tstop,NULL);
-    printf("Time to complete calculation: %f ms\n",(tstop-tstart)/1.E6);
+    ierr = clGetEventProfilingInfo(event,CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&tstart,NULL);
+    ierr = clGetEventProfilingInfo(event,CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&tstop,NULL);
+    if (ierr != CL_SUCCESS) {
+        if (ierr == CL_PROFILING_INFO_NOT_AVAILABLE) printf("CL_PROFILING_NOT_AVAILABLE\n");
+        if (ierr == CL_INVALID_VALUE) printf("CL_INVALID_VALUE\n");
+        if (ierr == CL_INVALID_EVENT) printf("CL_INVALID_EVENT\n");
+        if (ierr == CL_OUT_OF_RESOURCES) printf("CL_OUT_OF_RESOURCES\n");
+        if (ierr == CL_OUT_OF_HOST_MEMORY) printf("CL_OUT_OF_HOST_MEMORY\n");
+    } else {
+        printf("Time to complete calculation: %f ms\n",(tstop-tstart)/1.E6);
+    }
     
     // same thing but the time taken to copy the data off the GPU
-    clGetEventProfilingInfo(copyEvent,CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&tstart,NULL);
-    clGetEventProfilingInfo(copyEvent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&tstop,NULL);
-    printf("Time to complete copy from device to host: %f ms\n",(tstop-tstart)/1.E6);
+    ierr = clGetEventProfilingInfo(copyEvent,CL_PROFILING_COMMAND_START,sizeof(cl_ulong),&tstart,NULL);
+    ierr = clGetEventProfilingInfo(copyEvent,CL_PROFILING_COMMAND_END,sizeof(cl_ulong),&tstop,NULL);
+    if (ierr != CL_SUCCESS) {
+        if (ierr == CL_PROFILING_INFO_NOT_AVAILABLE) printf("CL_PROFILING_NOT_AVAILABLE\n");
+        if (ierr == CL_INVALID_VALUE) printf("CL_INVALID_VALUE\n");
+        if (ierr == CL_INVALID_EVENT) printf("CL_INVALID_EVENT\n");
+        if (ierr == CL_OUT_OF_RESOURCES) printf("CL_OUT_OF_RESOURCES\n");
+        if (ierr == CL_OUT_OF_HOST_MEMORY) printf("CL_OUT_OF_HOST_MEMORY\n");
+    } else {
+        printf("Time to complete copy from device to host: %f ms\n",(tstop-tstart)/1.E6);
+    }
 
     
 
     //generate x and y arrays to convert the int image coordinates [i,j] into float x and y values
     float *x = malloc(sizeof(float)*NX);
     float *y = malloc(sizeof(float)*NY);
+
+    float xmin = XMIN;
+    float xmax = XMAX;
+    float ymin = YMIN;
+    float ymax = YMAX;
 
     for (int i=0;i<NX;i++){
         x[i] = xmin + (xmax-xmin)/NX*i;
