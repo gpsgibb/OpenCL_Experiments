@@ -203,12 +203,17 @@ int main(int argc, char **argv){
             GetDeviceInfoUlong(devices[j],CL_DEVICE_GLOBAL_MEM_SIZE,(void*)&clulong_var);
             printf("    CL_DEVICE_GLOBAL_MEM_SIZE: %lu bytes\n",clulong_var);
 
+            GetDeviceInfoStr(devices[j],CL_DEVICE_EXTENSIONS,outstring);
+            printf("    CL_DEVICE_EXTENSIONS: %s\n",outstring);
+
             GetDeviceInfoUint(devices[j],CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,(void*)&cluint_var);
             if (cluint_var != 0){
                printf("    Supports double precision?: Yes\n");
             } else {
                printf("    Supports double precision?: No\n");
             }
+
+            
 
         }
 
