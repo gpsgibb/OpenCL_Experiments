@@ -127,14 +127,17 @@ int main(int argc, char **argv){
     }
 
     //create the command queue. Here we set the command_queue_properties to request profiling so we can time how long it takes to do the work
+#ifdef CL_API_SUFFIX__VERSION_2_0 
     cl_queue_properties qproperties[] = {
                                            CL_QUEUE_PROPERTIES,
                                            CL_QUEUE_PROFILING_ENABLE,
                                            0
                                         };
     cl_command_queue queue = clCreateCommandQueueWithProperties(context,device,qproperties,&ierr);
+#else
     //deprecated syntax
-    //cl_command_queue queue = clCreateCommandQueue(context,device,CL_QUEUE_PROFILING_ENABLE,&ierr);
+    cl_command_queue queue = clCreateCommandQueue(context,device,CL_QUEUE_PROFILING_ENABLE,&ierr);
+#endif    
     if (ierr != CL_SUCCESS){
         printf("An error occurred creating the command queue!\n");
         return 1;
